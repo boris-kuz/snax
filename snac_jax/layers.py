@@ -9,15 +9,9 @@ from jaxtyping import Array
 from typing import List
 
 from .attention import LocalMHA
-
-import time
+from .utils import pseudo_rn
 
 from loguru import logger
-
-
-# TODO consolidate
-def pseudo_rn():
-    return jax.random.PRNGKey(int(time.perf_counter()))
 
 
 def WNConv1d(*args, **kwargs):
@@ -205,7 +199,6 @@ class DecoderBlock(eqx.Module):
         return self.block(x)
 
 
-@jax.jit
 def snake(x, alpha):
     shape = x.shape
     x = x.reshape(shape[0], shape[1], -1)

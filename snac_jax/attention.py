@@ -6,14 +6,10 @@ from equinox.nn._attention import dot_product_attention
 from jaxtyping import Array
 import jax.numpy as jnp
 import jax
-import time
 
 from loguru import logger
 
-
-# TODO consolidate
-def pseudo_rn():
-    return jax.random.PRNGKey(int(time.perf_counter()))
+from .utils import pseudo_rn
 
 
 class SinusoidalEmbeddings(eqx.Module):
@@ -33,7 +29,6 @@ class SinusoidalEmbeddings(eqx.Module):
             use_xpos and scale_base is None
         ), "scale base must be defined if using xpos"
         self.scale = (jnp.arange(0, dim, 2) + 0.4 * dim) / (1.4 * dim)
-        # self.register_buffer("scale", scale, persistent=False)
 
     def __call__(self, x, key=None):
         seq_len, device = x.shape[-2], x.device
@@ -72,7 +67,7 @@ class LocalMHA(eqx.Module):
     def __call__(self, x, key=None):
         C, T = x.shape
         residual = x
-        x = jax.vmap(self.norm)(x.T)  # TODO not sure if the transpose is correct
+        x = jax.vmap(self.norm)(x.T)
         windows = T // self.window_size
         q, k, v = jnp.split(jax.vmap(self.to_qkv)(x), 3, axis=-1)
         q, k, v = map(
@@ -85,13 +80,12 @@ class LocalMHA(eqx.Module):
         out = jax.vmap(jax.vmap(dot_product_attention))(q, k, v)
         out = rearrange(out, "h w n d -> (w n) (h d)")
         out = jax.vmap(self.to_out)(out)
-        return out.T + residual  # TODO not sure if the tranpose is correct
+        return out.T + residual
 
 
 def rotate_half(x):
-    x = rearrange(x, "b ... (r d) -> b ... r d", r=2)
-    # x1, x2 = x.unbind(dim=-2)
-    x1, x2 = [s.squeeze() for s in jnp.split(x, x.shape[-2], -2)]
+    x = rearrange(x, "... (r d) -> ... r d", r=2)
+    x1, x2 = [s.squeeze(-2) for s in jnp.split(x, x.shape[-2], -2)]
     return jnp.concatenate((-x2, x1), axis=-1)
 
 

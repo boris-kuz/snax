@@ -10,13 +10,7 @@ import jax.numpy as jnp
 from jaxtyping import Array
 
 from .layers import WNConv1d
-
-import time
-
-
-# TODO consolidate
-def pseudo_rn():
-    return jax.random.PRNGKey(int(time.perf_counter()))
+from .utils import pseudo_rn
 
 
 def _normalize(x: Array) -> Array:
@@ -126,7 +120,7 @@ class ResidualVectorQuantize(eqx.Module):
         return z_q, codes
 
     def from_codes(self, codes: List[Array]) -> Array:
-        z_q = 0.0
+        z_q = jnp.zeros(1)
         for i in range(self.n_codebooks):
             z_p_i = self.quantizers[i].decode_code(codes[i])
             z_q_i = self.quantizers[i].out_proj(z_p_i)

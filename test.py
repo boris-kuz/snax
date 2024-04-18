@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from snac_jax.snac import SNAC
+from snac_jax.utils import timer
 import soundfile as sf
 import jax.numpy as jnp
 import jax
@@ -12,6 +13,8 @@ from resampy import resample
 import equinox as eqx
 from functools import partial
 
+import numpy as np
+
 
 @eqx.filter_jit
 def transcode(model, input):
@@ -20,16 +23,28 @@ def transcode(model, input):
     return jax.vmap(model.decode)(codes)
 
 
-if __name__ == "__main__":
-    logger.info(f"{jax.devices()[0]=}")
-    model = SNAC.from_pretrained("hubertsiuzdak/snac_44khz")
+def get_data():
     y, sr = sf.read("charli.wav")
-    logger.info(f"{y.shape=}")
     if sr != 44100:
         y = resample(y, sr, 44100, axis=0)
     y = jnp.asarray(rearrange(y, "t c -> c 1 t"))
-    audio_hat = transcode(model, y)
-    logger.info(f"{audio_hat.shape=}")
+    return y
+
+
+def get_random_data(l):
+    y = np.random.randn(l, 1)
+    y = jnp.asarray(rearrange(y, "t c -> c 1 t"))
+    return y
+
+
+if __name__ == "__main__":
+    model = eqx.nn.inference_mode(SNAC.from_pretrained("hubertsiuzdak/snac_44khz"))
+    audio = get_data()
+    y = np.random.randn(*audio.shape)
+    audio_hat = transcode(model, y)  # trigger jit&trace
+    y = audio
+    with timer:
+        audio_hat = transcode(model, y)
+    logger.info(f"Took {timer.elapsed_time:.2e}s")
     norm = lambda x: x / jnp.max(jnp.abs(x))
     sf.write("reconstructed.wav", norm(rearrange(y, "c 1 t -> t c")), 44100)
-    logger.info("Written to reconstructed.wav")
