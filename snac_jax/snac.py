@@ -87,7 +87,6 @@ class SNAC(eqx.Module):
         )
 
     def preprocess(self, audio_data):
-        logger.info(f"{audio_data.shape=}")
         length = audio_data.shape[-1]
         lcm = math.lcm(self.vq_strides[0], self.attn_window_size or 1)
         pad_to = self.hop_length * lcm

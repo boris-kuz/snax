@@ -8,6 +8,8 @@ import jax.numpy as jnp
 import jax
 import time
 
+from loguru import logger
+
 
 # TODO consolidate
 def pseudo_rn():
@@ -36,11 +38,11 @@ class SinusoidalEmbeddings(eqx.Module):
     def __call__(self, x, key=None):
         seq_len, device = x.shape[-2], x.device
         inv_freq = jax.lax.stop_gradient(self.inv_freq)
-        t = jnp.arange(seq_len).astype(inv_freq)
+        t = jnp.arange(seq_len).astype(inv_freq.dtype)
         freqs = jnp.einsum("i , j -> i j", t, inv_freq)
         freqs = jnp.concatenate((freqs, freqs), axis=-1)
         if not self.use_xpos:
-            return freqs, jnp.ones(1, device=device)
+            return freqs, jnp.ones(1)
         power = (t - (seq_len // 2)) / self.scale_base
         scale = jax.lax.stop_gradient(self.scale) ** rearrange(power, "n -> n 1")
         scale = jnp.concatenate((scale, scale), axis=-1)
@@ -68,24 +70,22 @@ class LocalMHA(eqx.Module):
         self.to_out = nn.Linear(dim, dim, use_bias=False, key=pseudo_rn())
 
     def __call__(self, x, key=None):
-        B, C, T = x.shape
+        C, T = x.shape
         residual = x
-        x = self.norm(x.transpose(1, 2))
+        x = jax.vmap(self.norm)(x.T)  # TODO not sure if the transpose is correct
         windows = T // self.window_size
-        q, k, v = jnp.split(self.to_qkv(x), 3, axis=-1)
+        q, k, v = jnp.split(jax.vmap(self.to_qkv)(x), 3, axis=-1)
         q, k, v = map(
-            lambda t: rearrange(
-                t, "b (w n) (h d) -> b h w n d", w=windows, h=self.heads
-            ),
+            lambda t: rearrange(t, "(w n) (h d) -> h w n d", w=windows, h=self.heads),
             (q, k, v),
         )
         if self.rel_pos is not None:
             pos_emb, scale = self.rel_pos(k)
             q, k = apply_rotary_pos_emb(q, k, pos_emb, scale)
-        out = dot_product_attention(q, k, v)
-        out = rearrange(out, "b h w n d -> b (w n) (h d)")
-        out = self.to_out(out)
-        return out.transpose(1, 2) + residual
+        out = jax.vmap(jax.vmap(dot_product_attention))(q, k, v)
+        out = rearrange(out, "h w n d -> (w n) (h d)")
+        out = jax.vmap(self.to_out)(out)
+        return out.T + residual  # TODO not sure if the tranpose is correct
 
 
 def rotate_half(x):

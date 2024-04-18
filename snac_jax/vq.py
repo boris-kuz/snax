@@ -49,15 +49,15 @@ class VectorQuantize(eqx.Module):
 
         self.pool = nn.AvgPool1d(stride, stride)
 
-    def forward(self, z):
+    def __call__(self, z):
         if self.stride > 1:
             z = self.pool(z)
 
         # Factorized codes (ViT-VQGAN) Project input into low-dimensional space
         z_e = self.in_proj(z)  # z_e : (B x D x T)
         z_q, indices = self.decode_latents(z_e)
-        z_q = (
-            z_e + (z_q - z_e).detach()
+        z_q = z_e + jax.lax.stop_gradient(
+            z_q - z_e
         )  # noop in forward pass, straight-through gradient estimator in backward pass
 
         z_q = self.out_proj(z_q)
@@ -71,10 +71,10 @@ class VectorQuantize(eqx.Module):
         return jnp.vectorize(self.codebook, signature="()->(n)")(embed_id)
 
     def decode_code(self, embed_id):
-        return self.embed_code(embed_id).transpose(1, 2)
+        return self.embed_code(embed_id).T  # TODO tranpose?
 
     def decode_latents(self, latents):
-        encodings = rearrange(latents, "b d t -> (b t) d")
+        encodings = rearrange(latents, "d t -> t d")
         codebook = self.codebook.weight  # codebook: (N x D)
 
         # L2 normalize encodings and codebook (ViT-VQGAN)
@@ -87,9 +87,7 @@ class VectorQuantize(eqx.Module):
         term3 = jnp.sum(jnp.square(codebook), axis=1, keepdims=True).T
 
         dist = term1 - term2 + term3
-        indices = rearrange(
-            jnp.argmax(-dist, axis=1), "(b t) -> b t", b=latents.shape[0]
-        )
+        indices = jnp.argmax(-dist, axis=1)
         z_q = self.decode_code(indices)
         return z_q, indices
 
@@ -115,7 +113,7 @@ class ResidualVectorQuantize(eqx.Module):
             for stride in vq_strides
         ]
 
-    def forward(self, z):
+    def __call__(self, z):
         z_q = 0.0
         residual = z
         codes = []

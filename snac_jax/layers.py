@@ -12,6 +12,8 @@ from .attention import LocalMHA
 
 import time
 
+from loguru import logger
+
 
 # TODO consolidate
 def pseudo_rn():
@@ -165,8 +167,8 @@ class NoiseBlock(eqx.Module):
         self.linear = WNConv1d(dim, dim, kernel_size=1, use_bias=False)
 
     def __call__(self, x, key=None):
-        B, C, T = x.shape
-        noise = jnp.randn((B, 1, T), key=pseudo_rn())  # TODO key
+        C, T = x.shape
+        noise = jax.random.normal(shape=(1, T), key=pseudo_rn())  # TODO key
         h = self.linear(x)
         n = noise * h
         x = x + n
