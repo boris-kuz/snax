@@ -1,0 +1,6 @@
+* SNAX
+
+Port of [[https://github.com/hubertsiuzdak][Hubert Siuzdak's]] [[https://github.com/hubertsiuzdak/snac][snac]] to [[https://github.com/google/jax][JAX]] & [[https://github.com/patrick-kidger/equinox][Equinox]].
+
+On my system with a RTX 2080, I get a ~100x speedup when transcoding a 9s long stereo snippet after jit-ing.
+More thorough benchmarks to be conducted.

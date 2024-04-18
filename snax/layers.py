@@ -84,9 +84,9 @@ class Decoder(eqx.Module):
             input_dim = channels // 2**i
             output_dim = channels // 2 ** (i + 1)
             groups = output_dim if depthwise else 1
-            layers.append(
+            layers += [
                 DecoderBlock(input_dim, output_dim, stride, noise, groups=groups)
-            )
+            ]
 
         layers += [
             Snake1d(output_dim),
@@ -162,7 +162,7 @@ class NoiseBlock(eqx.Module):
 
     def __call__(self, x, key=None):
         C, T = x.shape
-        noise = jax.random.normal(shape=(1, T), key=pseudo_rn())  # TODO key
+        noise = jax.random.normal(shape=(1, T), key=pseudo_rn())
         h = self.linear(x)
         n = noise * h
         x = x + n
@@ -199,6 +199,7 @@ class DecoderBlock(eqx.Module):
         return self.block(x)
 
 
+@jax.jit
 def snake(x, alpha):
     shape = x.shape
     x = x.reshape(shape[0], shape[1], -1)
@@ -213,5 +214,6 @@ class Snake1d(eqx.Module):
     def __init__(self, channels):
         self.alpha = jnp.ones((1, channels, 1))
 
+    @eqx.filter_jit
     def __call__(self, x, key=None):
         return snake(x, self.alpha)

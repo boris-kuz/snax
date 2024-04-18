@@ -1,10 +1,8 @@
 import json
 import math
-from typing import List, Tuple
 
 import numpy as np
 
-import jax
 import jax.numpy as jnp
 import equinox as eqx
 from equinox import nn
@@ -15,10 +13,8 @@ from jaxtyping import Array
 from .layers import Encoder, Decoder
 from .vq import ResidualVectorQuantize
 
-from loguru import logger
 
-
-class SNAC(eqx.Module):
+class SNAX(eqx.Module):
     sampling_rate: int = field(static=True)
     encoder_dim: int = field(static=True)
     encoder_rates: list[int] = field(static=True)
@@ -91,10 +87,10 @@ class SNAC(eqx.Module):
         lcm = math.lcm(self.vq_strides[0], self.attn_window_size or 1)
         pad_to = self.hop_length * lcm
         right_pad = math.ceil(length / pad_to) * pad_to - length
-        audio_data = jnp.pad(audio_data, ((0, 0), (0, right_pad)))  # TODO
+        audio_data = jnp.pad(audio_data, ((0, 0), (0, right_pad)))
         return audio_data
 
-    def __call__(self, audio_data: Array, key=None) -> Tuple[Array, List[Array]]:
+    def __call__(self, audio_data: Array, key=None) -> tuple[Array, list[Array]]:
         length = audio_data.shape[-1]
         audio_data = self.preprocess(audio_data)
         z = self.encoder(audio_data)
@@ -102,13 +98,13 @@ class SNAC(eqx.Module):
         audio_hat = self.decoder(z_q)
         return audio_hat[..., :length], codes
 
-    def encode(self, audio_data: Array) -> List[Array]:
+    def encode(self, audio_data: Array) -> list[Array]:
         audio_data = self.preprocess(audio_data)
         z = self.encoder(audio_data)
         _, codes = self.quantizer(z)
         return codes
 
-    def decode(self, codes: List[Array]) -> Array:
+    def decode(self, codes: list[Array]) -> Array:
         z_q = self.quantizer.from_codes(codes)
         audio_hat = self.decoder(z_q)
         return audio_hat
@@ -120,7 +116,6 @@ class SNAC(eqx.Module):
         model = cls(**config)
         return model
 
-    # TODO need to check this whole thing
     @classmethod
     def from_pretrained(cls, repo_id, **kwargs):
         import torch
@@ -140,7 +135,7 @@ class SNAC(eqx.Module):
                 if isinstance(model, nn.WeightNorm):
                     if weight_name == "bias":
                         return model.layer.bias
-                    if weight_name == "original1":  # TODO could be other way around
+                    if weight_name == "original1":
                         return model.layer.weight
                     if weight_name == "original0":
                         return model.g
@@ -155,7 +150,7 @@ class SNAC(eqx.Module):
             layer = get_weight(n.split("."), model)
             w = jnp.array(w.cpu().numpy())
             if tuple(layer.shape) != tuple(w.shape):
-                if w.squeeze().ndim == w.ndim and w.ndim == 3:  # TODO double check this
+                if w.squeeze().ndim == w.ndim and w.ndim == 3:
                     w = jnp.flip(w, axis=2).transpose(1, 0, 2)
                 else:
                     w = w.reshape(layer.shape)

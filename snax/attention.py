@@ -7,8 +7,6 @@ from jaxtyping import Array
 import jax.numpy as jnp
 import jax
 
-from loguru import logger
-
 from .utils import pseudo_rn
 
 
@@ -19,9 +17,7 @@ class SinusoidalEmbeddings(eqx.Module):
     scale_base: float | None = field(static=True)
 
     def __init__(self, dim, scale_base=None, use_xpos=False):
-        self.inv_freq = 1.0 / (
-            10000 ** (jnp.arange(0, dim, 2).astype(float) / dim)
-        )  # TODO buffer
+        self.inv_freq = 1.0 / (10000 ** (jnp.arange(0, dim, 2).astype(float) / dim))
         # xpos related
         self.use_xpos = use_xpos
         self.scale_base = scale_base
@@ -50,8 +46,8 @@ class LocalMHA(eqx.Module):
     heads: int
     window_size: int
     to_qkv: nn.Linear
-    rel_pos: SinusoidalEmbeddings | None
     to_out: nn.Linear
+    rel_pos: SinusoidalEmbeddings | None = None
 
     def __init__(self, dim=1024, window_size=32, dim_head=64, use_rotary_pos_emb=True):
         self.norm = nn.LayerNorm(dim)
@@ -60,8 +56,6 @@ class LocalMHA(eqx.Module):
         self.to_qkv = nn.Linear(dim, dim * 3, use_bias=False, key=pseudo_rn())
         if use_rotary_pos_emb:
             self.rel_pos = SinusoidalEmbeddings(dim_head, scale_base=window_size // 2)
-        else:
-            self.rel_pos = None
         self.to_out = nn.Linear(dim, dim, use_bias=False, key=pseudo_rn())
 
     def __call__(self, x, key=None):

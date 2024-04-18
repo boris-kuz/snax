@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-from snac_jax.snac import SNAC
-from snac_jax.utils import timer
+from snax.snax import SNAX
+from snax.utils import timer
 import soundfile as sf
 import jax.numpy as jnp
 import jax
@@ -38,8 +38,8 @@ def get_random_data(l):
 
 
 if __name__ == "__main__":
-    model = eqx.nn.inference_mode(SNAC.from_pretrained("hubertsiuzdak/snac_44khz"))
-    audio = get_data()
+    model = eqx.nn.inference_mode(SNAX.from_pretrained("hubertsiuzdak/snac_44khz"))
+    audio = get_random_data(441000)
     y = np.random.randn(*audio.shape)
     audio_hat = transcode(model, y)  # trigger jit&trace
     y = audio

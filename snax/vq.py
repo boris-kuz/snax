@@ -1,5 +1,3 @@
-from typing import List
-
 from equinox import field
 import equinox as eqx
 import equinox.nn as nn
@@ -65,7 +63,7 @@ class VectorQuantize(eqx.Module):
         return jnp.vectorize(self.codebook, signature="()->(n)")(embed_id)
 
     def decode_code(self, embed_id):
-        return self.embed_code(embed_id).T  # TODO tranpose?
+        return self.embed_code(embed_id).T
 
     def decode_latents(self, latents):
         encodings = rearrange(latents, "d t -> t d")
@@ -97,7 +95,7 @@ class ResidualVectorQuantize(eqx.Module):
         input_dim: int = 512,
         codebook_size: int = 1024,
         codebook_dim: int = 8,
-        vq_strides: List[int] = [1, 1, 1, 1],
+        vq_strides: list[int] = [1, 1, 1, 1],
     ):
         self.n_codebooks = len(vq_strides)
         self.codebook_dim = codebook_dim
@@ -119,7 +117,7 @@ class ResidualVectorQuantize(eqx.Module):
 
         return z_q, codes
 
-    def from_codes(self, codes: List[Array]) -> Array:
+    def from_codes(self, codes: list[Array]) -> Array:
         z_q = jnp.zeros(1)
         for i in range(self.n_codebooks):
             z_p_i = self.quantizers[i].decode_code(codes[i])
