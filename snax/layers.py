@@ -11,8 +11,6 @@ from typing import List
 from .attention import LocalMHA
 from .utils import pseudo_rn
 
-from loguru import logger
-
 
 def WNConv1d(*args, **kwargs):
     return nn.WeightNorm(nn.Conv1d(*args, **kwargs, key=pseudo_rn()))

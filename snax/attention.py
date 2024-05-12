@@ -3,7 +3,7 @@ import equinox as eqx
 from equinox import nn
 from equinox import field
 from equinox.nn._attention import dot_product_attention
-from jaxtyping import Array
+from jaxtyping import Array, Float
 import jax.numpy as jnp
 import jax
 
@@ -27,7 +27,7 @@ class SinusoidalEmbeddings(eqx.Module):
         self.scale = (jnp.arange(0, dim, 2) + 0.4 * dim) / (1.4 * dim)
 
     def __call__(self, x, key=None):
-        seq_len, device = x.shape[-2], x.device
+        seq_len = x.shape[-2]
         inv_freq = jax.lax.stop_gradient(self.inv_freq)
         t = jnp.arange(seq_len).astype(inv_freq.dtype)
         freqs = jnp.einsum("i , j -> i j", t, inv_freq)
